@@ -4,11 +4,13 @@ filetype on
 let mapleader="§"
 let maplocalleader="§"
 
-let g:pathogen_disabled = ['YouCompleteMe', 'syntastic']
+
+"let g:pathogen_disabled = ['ale']
 execute pathogen#infect()
 autocmd BufWritePost .vimrc source %
 
 let loaded_matchit = 1
+
 
 " Colors
 set t_Co=256
@@ -53,8 +55,6 @@ set foldmethod=indent
 autocmd BufWinEnter * let &foldlevel = max(map(range(1, line('$')), 'foldlevel(v:val)')) "With this, everything is unfolded at start
 set foldnestmax=100
 
-nnoremap <space> za
-
 " Movement
 " move vertically by visual line
 nnoremap j gj
@@ -94,7 +94,6 @@ onoremap <silent>L :<C-u>call search('\C\<\<Bar>\%(^\<Bar>[^'.g:camelchar.']\@<=
 
 " Custom Functions
 "
-" strips trailing whitespace at the end of files. this
 " is called on buffer write in the autogroup above.
 function! <SID>StripTrailingWhitespaces()
     " save last search & cursor position
@@ -199,25 +198,28 @@ nnoremap <F1> :UndotreeToggle<cr>
 " A wrapper function to restore the cursor position, window position,
 " and last search after running a command.
 function! Preserve(command)
-  " Save the last search
-  let last_search=@/
-  " Save the current cursor position
-  let save_cursor = getpos(".")
-  " Save the window position
-  normal H
-  let save_window = getpos(".")
-  call setpos('.', save_cursor)
-
-  " Do the business:
+  let l:save = winsaveview()
   execute a:command
-
-  " Restore the last_search
-  let @/=last_search
-  " Restore the window position
-  call setpos('.', save_window)
-  normal zt
-  " Restore the cursor position
-  call setpos('.', save_cursor)
+  call winrestview(l:save)
+  " Save the last search
+  " let last_search=@/
+  " " Save the current cursor position
+  " let save_cursor = getpos(".")
+  " " Save the window position
+  " normal H
+  " let save_window = getpos(".")
+  " call setpos('.', save_cursor)
+  "
+  " " Do the business:
+  " execute a:command
+  "
+  " " Restore the last_search
+  " let @/=last_search
+  " " Restore the window position
+  " call setpos('.', save_window)
+  " normal zt
+  " " Restore the cursor position
+  " call setpos('.', save_cursor)
 endfunction
 
 cnoreabbrev Ack Ack!
@@ -228,21 +230,107 @@ if executable('fzf')
   autocmd VimEnter * nnoremap <C-p> :FZF <CR>
 endif
 
-" make YCM compatible with UltiSnips (using supertab)
-let g:ycm_key_list_select_completion = ['<C-n>', '<Down>']
-let g:ycm_key_list_previous_completion = ['<C-p>', '<Up>']
-let g:SuperTabDefaultCompletionType = '<C-n>'
+let g:ale_statusline_format = ['E %d', 'W %d', '- ok']
+" let g:ale_sign_column_always = 1
+" lint only on save
+let g:ale_lint_on_save = 1
+let g:ale_lint_on_text_changed = 0
+" You can disable this option too
+" if you don't want linters to run on opening a file
+let g:ale_lint_on_enter = 0
 
-" better key bindings for UltiSnipsExpandTrigger
-let g:UltiSnipsExpandTrigger = "§"
-let g:UltiSnipsJumpForwardTrigger = "<tab>"
-let g:UltiSnipsJumpBackwardTrigger = "<s-tab>"
+call airline#parts#define_function('ALE', 'ALEGetStatusLine')
+call airline#parts#define_condition('ALE', 'exists("*ALEGetStatusLine")')
+let g:airline_section_error = airline#section#create_left(['ALE'])
 
-set statusline+=%#warningmsg#
-set statusline+=%{SyntasticStatuslineFlag()}
-set statusline+=%*
+" let g:UltiSnipsExpandTrigger="§"
+" let g:UltiSnipsJumpForwardTrigger="<tab>"
+" let g:UltiSnipsJumpBackwardTrigger="<S-tab>"
 
-let g:syntastic_always_populate_loc_list = 1
-let g:syntastic_auto_loc_list = 1
-let g:syntastic_check_on_open = 1
-let g:syntastic_check_on_wq = 0
+
+" --------- NEO Complete -------------
+" Disable AutoComplPop.
+let g:acp_enableAtStartup = 0
+" Use neocomplete.
+let g:neocomplete#enable_at_startup = 1
+" Use smartcase.
+let g:neocomplete#enable_smart_case = 1
+" Set minimum syntax keyword length.
+let g:neocomplete#sources#syntax#min_keyword_length = 1
+let g:neocomplete#disable_auto_complete=1
+
+" <TAB>: completion.
+inoremap <expr><TAB>  pumvisible() ? "\<C-n>" :
+      \ <SID>check_back_space() ? "\<TAB>" :
+      \ neocomplete#start_manual_complete()
+function! s:check_back_space() "{{{
+  let col = col('.') - 1
+  return !col || getline('.')[col - 1]  =~ '\s'
+endfunction"}}}
+inoremap <expr><s-TAB>  pumvisible() ? "\<C-p>" : "\<s-TAB>"
+
+" Define dictionary.
+let g:neocomplete#sources#dictionary#dictionaries = {
+    \ 'default' : '',
+    \ 'vimshell' : $HOME.'/.vimshell_hist',
+    \ 'scheme' : $HOME.'/.gosh_completions'
+        \ }
+
+" Define keyword.
+if !exists('g:neocomplete#keyword_patterns')
+    let g:neocomplete#keyword_patterns = {}
+endif
+let g:neocomplete#keyword_patterns['default'] = '\h\w*'
+
+" Plugin key-mappings.
+inoremap <expr><C-g>     neocomplete#undo_completion()
+inoremap <expr><C-l>     neocomplete#complete_common_string()
+
+" Recommended key-mappings.
+" <CR>: close popup and save indent.
+inoremap <silent> <CR> <C-r>=<SID>my_cr_function()<CR>
+function! s:my_cr_function()
+  return (pumvisible() ? "\<C-y>" : "" ) . "\<CR>"
+  " For no inserting <CR> key.
+  "return pumvisible() ? "\<C-y>" : "\<CR>"
+endfunction
+" <C-h>, <BS>: close popup and delete backword char.
+inoremap <expr><C-h> neocomplete#smart_close_popup()."\<C-h>"
+inoremap <expr><BS> neocomplete#smart_close_popup()."\<C-h>"
+" Close popup by <Space>.
+"inoremap <expr><Space> pumvisible() ? "\<C-y>" : "\<Space>"
+
+" AutoComplPop like behavior.
+"let g:neocomplete#enable_auto_select = 1
+
+" Shell like behavior(not recommended).
+"set completeopt+=longest
+"let g:neocomplete#enable_auto_select = 1
+"let g:neocomplete#disable_auto_complete = 1
+"inoremap <expr><TAB>  pumvisible() ? "\<Down>" : "\<C-x>\<C-u>"
+
+" Enable omni completion.
+autocmd FileType css setlocal omnifunc=csscomplete#CompleteCSS
+autocmd FileType html,markdown setlocal omnifunc=htmlcomplete#CompleteTags
+autocmd FileType javascript setlocal omnifunc=javascriptcomplete#CompleteJS
+autocmd FileType python setlocal omnifunc=pythoncomplete#Complete
+autocmd FileType xml setlocal omnifunc=xmlcomplete#CompleteTags
+
+" Enable heavy omni completion.
+if !exists('g:neocomplete#sources#omni#input_patterns')
+  let g:neocomplete#sources#omni#input_patterns = {}
+endif
+"let g:neocomplete#sources#omni#input_patterns.php = '[^. \t]->\h\w*\|\h\w*::'
+"let g:neocomplete#sources#omni#input_patterns.c = '[^.[:digit:] *\t]\%(\.\|->\)'
+"let g:neocomplete#sources#omni#input_patterns.cpp = '[^.[:digit:] *\t]\%(\.\|->\)\|\h\w*::'
+
+" For perlomni.vim setting.
+" https://github.com/c9s/perlomni.vim
+let g:neocomplete#sources#omni#input_patterns.perl = '\h\w*->\h\w*\|\h\w*::'
+
+" Enable snipMate compatibility feature.
+let g:neosnippet#enable_snipmate_compatibility = 1
+
+imap <C-k>     <Plug>(neosnippet_expand_or_jump)
+smap <C-k>     <Plug>(neosnippet_expand_or_jump)
+xmap <C-k>     <Plug>(neosnippet_expand_target)
