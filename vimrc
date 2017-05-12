@@ -1,9 +1,8 @@
-" If installed using git
 set rtp+=~/.fzf
-filetype on
-let mapleader="§"
-let maplocalleader="§"
 
+filetype on
+" let mapleader="§"
+" let maplocalleader="§"
 
 "let g:pathogen_disabled = ['ale']
 execute pathogen#infect()
@@ -11,6 +10,7 @@ autocmd BufWritePost .vimrc source %
 
 let loaded_matchit = 1
 
+set timeoutlen=950
 
 " Colors
 set t_Co=256
@@ -29,8 +29,10 @@ autocmd BufRead,BufNewFile *.xml set noexpandtab
 
 " UI Config
 set number
+" set relativenumber
 set showcmd
 set wildmenu " Shows autocomplete in CommandLine
+set wildmode=longest:full,full
 syntax on
 syntax enable
 
@@ -97,12 +99,9 @@ onoremap <silent>L :<C-u>call search('\C\<\<Bar>\%(^\<Bar>[^'.g:camelchar.']\@<=
 " is called on buffer write in the autogroup above.
 function! <SID>StripTrailingWhitespaces()
     " save last search & cursor position
-    let _s=@/
-    let l = line(".")
-    let c = col(".")
+    let l:save = winsaveview()
     %s/\s\+$//e
-    let @/=_s
-    call cursor(l, c)
+    call winrestview(l:save)
 endfunction
 
 " Closes all Buffers bit the current one
@@ -120,7 +119,7 @@ nmap <Leader><F4> :call CloseAllBuffersButCurrent()<CR>
 " Autogroups
 augroup configgroup
     autocmd!
-    autocmd BufWritePre *.rb,*.php,*.py,*.js,*.txt,*.hs,*.java,*.md call <SID>StripTrailingWhitespaces()
+    autocmd BufWritePre *.rb,*.php,*.py,*.js,*.txt,*.hs,*.java,*.md,*.sass,*.css,*.scss call <SID>StripTrailingWhitespaces()
     autocmd FileType ruby map <F9> :RuboCop -a<CR>
     autocmd BufWritePre *.rb :normal call Preserve(gg=G)
     " autocmd BufWritePost *.rb :RuboCop -s
@@ -193,7 +192,7 @@ set directory=~/.vim/swap_files/
 inoremap <c-u> <c-g>u<c-u>
 inoremap <c-w> <c-g>u<c-w>
 
-nnoremap <F1> :UndotreeToggle<cr>
+nnoremap <F1> :GundoToggle<cr>
 
 " A wrapper function to restore the cursor position, window position,
 " and last search after running a command.
@@ -247,90 +246,38 @@ let g:airline_section_error = airline#section#create_left(['ALE'])
 " let g:UltiSnipsJumpForwardTrigger="<tab>"
 " let g:UltiSnipsJumpBackwardTrigger="<S-tab>"
 
-
-" --------- NEO Complete -------------
-" Disable AutoComplPop.
-let g:acp_enableAtStartup = 0
-" Use neocomplete.
-let g:neocomplete#enable_at_startup = 1
-" Use smartcase.
-let g:neocomplete#enable_smart_case = 1
-" Set minimum syntax keyword length.
-let g:neocomplete#sources#syntax#min_keyword_length = 1
-let g:neocomplete#disable_auto_complete=1
-
-" <TAB>: completion.
-inoremap <expr><TAB>  pumvisible() ? "\<C-n>" :
-      \ <SID>check_back_space() ? "\<TAB>" :
-      \ neocomplete#start_manual_complete()
-function! s:check_back_space() "{{{
-  let col = col('.') - 1
-  return !col || getline('.')[col - 1]  =~ '\s'
-endfunction"}}}
-inoremap <expr><s-TAB>  pumvisible() ? "\<C-p>" : "\<s-TAB>"
-
-" Define dictionary.
-let g:neocomplete#sources#dictionary#dictionaries = {
-    \ 'default' : '',
-    \ 'vimshell' : $HOME.'/.vimshell_hist',
-    \ 'scheme' : $HOME.'/.gosh_completions'
-        \ }
-
-" Define keyword.
-if !exists('g:neocomplete#keyword_patterns')
-    let g:neocomplete#keyword_patterns = {}
-endif
-let g:neocomplete#keyword_patterns['default'] = '\h\w*'
-
-" Plugin key-mappings.
-inoremap <expr><C-g>     neocomplete#undo_completion()
-inoremap <expr><C-l>     neocomplete#complete_common_string()
-
-" Recommended key-mappings.
-" <CR>: close popup and save indent.
-inoremap <silent> <CR> <C-r>=<SID>my_cr_function()<CR>
-function! s:my_cr_function()
-  return (pumvisible() ? "\<C-y>" : "" ) . "\<CR>"
-  " For no inserting <CR> key.
-  "return pumvisible() ? "\<C-y>" : "\<CR>"
+" EASY MOTION
+" You can use other keymappings like <C-l> instead of <CR> if you want to
+" use these mappings as default search and somtimes want to move cursor with
+" EasyMotion.
+function! s:incsearch_config(...) abort
+  return incsearch#util#deepextend(deepcopy({
+  \   'modules': [incsearch#config#easymotion#module({'overwin': 1})],
+  \   'keymap': {
+  \     "\<Tab>": '<Over>(easymotion)'
+  \   },
+  \   'is_expr': 0
+  \ }), get(a:, 1, {}))
 endfunction
-" <C-h>, <BS>: close popup and delete backword char.
-inoremap <expr><C-h> neocomplete#smart_close_popup()."\<C-h>"
-inoremap <expr><BS> neocomplete#smart_close_popup()."\<C-h>"
-" Close popup by <Space>.
-"inoremap <expr><Space> pumvisible() ? "\<C-y>" : "\<Space>"
 
-" AutoComplPop like behavior.
-"let g:neocomplete#enable_auto_select = 1
+" S{char}{char} to move to {char}{char}
+nmap S <Plug>(easymotion-overwin-f2)
 
-" Shell like behavior(not recommended).
-"set completeopt+=longest
-"let g:neocomplete#enable_auto_select = 1
-"let g:neocomplete#disable_auto_complete = 1
-"inoremap <expr><TAB>  pumvisible() ? "\<Down>" : "\<C-x>\<C-u>"
+noremap <silent><expr> /  incsearch#go(<SID>incsearch_config())
+noremap <silent><expr> ?  incsearch#go(<SID>incsearch_config({'command': '?'}))
+noremap <silent><expr> g/ incsearch#go(<SID>incsearch_config({'is_stay': 1}))
 
-" Enable omni completion.
-autocmd FileType css setlocal omnifunc=csscomplete#CompleteCSS
-autocmd FileType html,markdown setlocal omnifunc=htmlcomplete#CompleteTags
-autocmd FileType javascript setlocal omnifunc=javascriptcomplete#CompleteJS
-autocmd FileType python setlocal omnifunc=pythoncomplete#Complete
-autocmd FileType xml setlocal omnifunc=xmlcomplete#CompleteTags
+let g:UltiSnipsExpandTrigger="§"
+let g:UltiSnipsJumpForwardTrigger="<tab>"
+let g:UltiSnipsJumpBackwardTrigger="<s-tab>"
 
-" Enable heavy omni completion.
-if !exists('g:neocomplete#sources#omni#input_patterns')
-  let g:neocomplete#sources#omni#input_patterns = {}
-endif
-"let g:neocomplete#sources#omni#input_patterns.php = '[^. \t]->\h\w*\|\h\w*::'
-"let g:neocomplete#sources#omni#input_patterns.c = '[^.[:digit:] *\t]\%(\.\|->\)'
-"let g:neocomplete#sources#omni#input_patterns.cpp = '[^.[:digit:] *\t]\%(\.\|->\)\|\h\w*::'
+let g:SuperTabDefaultCompletionType = "<c-n>"
 
-" For perlomni.vim setting.
-" https://github.com/c9s/perlomni.vim
-let g:neocomplete#sources#omni#input_patterns.perl = '\h\w*->\h\w*\|\h\w*::'
-
-" Enable snipMate compatibility feature.
-let g:neosnippet#enable_snipmate_compatibility = 1
-
-imap <C-k>     <Plug>(neosnippet_expand_or_jump)
-smap <C-k>     <Plug>(neosnippet_expand_or_jump)
-xmap <C-k>     <Plug>(neosnippet_expand_target)
+command! -bar -nargs=1 -bang -complete=file Rename :
+  \ let s:file = expand('%:p') |
+  \ setlocal modified |
+  \ keepalt saveas<bang> <args> |
+  \ if s:file !=# expand('%:p') |
+  \   call delete(s:file) |
+  \ endif |
+  \ unlet s:file
