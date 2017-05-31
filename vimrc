@@ -1,8 +1,8 @@
 set rtp+=~/.fzf
 
 filetype on
-" let mapleader="§"
-" let maplocalleader="§"
+let mapleader="§"
+let maplocalleader="§"
 
 "let g:pathogen_disabled = ['ale']
 execute pathogen#infect()
@@ -14,6 +14,9 @@ set timeoutlen=950
 
 " Colors
 set t_Co=256
+" set termguicolors
+" let ayucolor="dark"
+" colorscheme ayu
 colorscheme spacegray
 
 " Spaces, indents and Tabs
@@ -268,6 +271,7 @@ noremap <silent><expr> ?  incsearch#go(<SID>incsearch_config({'command': '?'}))
 noremap <silent><expr> g/ incsearch#go(<SID>incsearch_config({'is_stay': 1}))
 
 let g:UltiSnipsExpandTrigger="§"
+let g:UltiSnipsListSnippets="°"
 let g:UltiSnipsJumpForwardTrigger="<tab>"
 let g:UltiSnipsJumpBackwardTrigger="<s-tab>"
 
@@ -281,3 +285,66 @@ command! -bar -nargs=1 -bang -complete=file Rename :
   \   call delete(s:file) |
   \ endif |
   \ unlet s:file
+
+for char in [ '_', '.', ':', ',', ';', '<bar>', '/', '<bslash>', '*', '+', '%', '-', '#' ]
+    execute 'xnoremap i' . char . ' :<C-u>normal! T' . char . 'vt' . char . '<CR>'
+    execute 'onoremap i' . char . ' :normal vi' . char . '<CR>'
+    execute 'xnoremap a' . char . ' :<C-u>normal! F' . char . 'vf' . char . '<CR>'
+    execute 'onoremap a' . char . ' :normal va' . char . '<CR>'
+endfor
+
+if !exists('s:known_links')
+  let s:known_links = {}
+endif
+
+function! s:Find_links() " {{{1
+  " Find and remember links between highlighting groups.
+  redir => listing
+  try
+    silent highlight
+  finally
+    redir END
+  endtry
+  for line in split(listing, "\n")
+    let tokens = split(line)
+    " We're looking for lines like "String xxx links to Constant" in the
+    " output of the :highlight command.
+    if len(tokens) == 5 && tokens[1] == 'xxx' && tokens[2] == 'links' && tokens[3] == 'to'
+      let fromgroup = tokens[0]
+      let togroup = tokens[4]
+      let s:known_links[fromgroup] = togroup
+    endif
+  endfor
+endfunction
+
+function! s:Restore_links() " {{{1
+  " Restore broken links between highlighting groups.
+  redir => listing
+  try
+    silent highlight
+  finally
+    redir END
+  endtry
+  let num_restored = 0
+  for line in split(listing, "\n")
+    let tokens = split(line)
+    " We're looking for lines like "String xxx cleared" in the
+    " output of the :highlight command.
+    if len(tokens) == 3 && tokens[1] == 'xxx' && tokens[2] == 'cleared'
+      let fromgroup = tokens[0]
+      let togroup = get(s:known_links, fromgroup, '')
+      if !empty(togroup)
+        execute 'hi link' fromgroup togroup
+        let num_restored += 1
+      endif
+    endif
+  endfor
+endfunction
+
+function! s:AccurateColorscheme(colo_name)
+  call <SID>Find_links()
+  exec "colorscheme " a:colo_name
+  call <SID>Restore_links()
+endfunction
+
+command! -nargs=1 -complete=color MyColorscheme call <SID>AccurateColorscheme(<q-args>)
